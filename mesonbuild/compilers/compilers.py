@@ -1253,6 +1253,9 @@ class GnuCompiler:
     def get_std_shared_lib_link_args(self):
         return ['-shared']
 
+    def get_include_symbols_for(self, args):
+        raise EnvironmentException('Language %s does not support forced inclusion of linker symbols.' % self.get_display_language())
+
     def get_link_whole_for(self, args):
         return ['-Wl,--whole-archive'] + args + ['-Wl,--no-whole-archive']
 
@@ -1398,6 +1401,9 @@ class ClangCompiler:
         if self.clang_type == CLANG_OSX:
             return ['-bundle', '-Wl,-undefined,dynamic_lookup']
         return ['-shared']
+
+    def get_include_symbols_for(self, args):
+        raise EnvironmentException('Language %s does not support forced inclusion of linker symbols.' % self.get_display_language())
 
     def get_link_whole_for(self, args):
         if self.clang_type == CLANG_OSX:
