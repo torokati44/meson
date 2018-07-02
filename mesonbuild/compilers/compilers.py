@@ -977,6 +977,9 @@ class Compiler:
     def get_std_shared_module_link_args(self, options):
         return self.get_std_shared_lib_link_args()
 
+    def get_include_symbols_for(self, args):
+        raise EnvironmentException('Language %s does not support forced inclusion of linker symbols.' % self.get_display_language())
+
     def get_link_whole_for(self, args):
         if isinstance(args, list) and not args:
             return []

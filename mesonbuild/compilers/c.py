@@ -1319,6 +1319,9 @@ class VisualStudioCCompiler(CCompiler):
         pdbarr += ['pdb']
         return ['/DEBUG', '/PDB:' + '.'.join(pdbarr)]
 
+    def get_include_symbols_for(self, args):
+        raise EnvironmentException('Language %s does not support forced inclusion of linker symbols.' % self.get_display_language())
+
     def get_link_whole_for(self, args):
         # Only since VS2015
         args = listify(args)

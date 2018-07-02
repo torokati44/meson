@@ -2570,6 +2570,9 @@ rule FORTRAN_DEP_HACK%s
         # Add link args specific to this BuildTarget type, such as soname args,
         # PIC, import library generation, etc.
         commands += self.get_target_type_link_args(target, linker)
+
+        #undefine symbols
+
         # Archives that are copied wholesale in the result. Must be before any
         # other link targets so missing symbols from whole archives are found in those.
         if not isinstance(target, build.StaticLibrary):

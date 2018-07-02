@@ -955,6 +955,9 @@ class Vs2010Backend(backends.Backend):
         # vcxproj file (similar to buildtype compiler args) instead of in
         # AdditionalOptions?
         extra_link_args += compiler.get_buildtype_linker_args(self.buildtype)
+
+        #undef symbols
+
         # Generate Debug info
         if self.buildtype.startswith('debug'):
             self.generate_debug_information(link)
