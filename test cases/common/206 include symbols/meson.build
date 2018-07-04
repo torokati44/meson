@@ -1,13 +1,12 @@
-project('test link_whole with shared libraries', 'cpp')
+project('test include_symbols with shared libraries', 'cpp')
 
-# skip this test on inferior platforms
-if host_machine.system() == 'windows'
-  error('MESON_SKIP_TEST link_whole with shared libraries is not possible on Windows.')
-endif
-if host_machine.system() == 'darwin'
-  error('MESON_SKIP_TEST link_whole with shared libraries is not possible on macOS.')
-endif
+cc = meson.get_compiler('cpp')
 
+if cc.symbols_have_underscore_prefix()
+  prefix = '_'
+else
+  prefix = ''
+endif
 
 registry_lib = shared_library('registry',
   'registry.cpp',
@@ -16,7 +15,7 @@ registry_lib = shared_library('registry',
 
 plugin_lib = shared_library('plugin',
   'plugin.cpp',
-  link_with: registry_lib, # no need for link_whole here
+  link_with: registry_lib,
   install: false) # Don't install libraries in common tests; the path is platform-specific
 
 
@@ -34,8 +33,8 @@ test('test1', exe1, should_fail: true)
 
 exe2 = executable('exe2',
   'main.cpp',
-  link_with: registry_lib,
-  link_whole: plugin_lib,
+  link_with: [registry_lib, plugin_lib],
+  include_symbols:  prefix + 'plugin_dummy', # single arg
   build_rpath: meson.current_build_dir(),
   install: true)
 

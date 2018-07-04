@@ -2558,7 +2558,8 @@ rule FORTRAN_DEP_HACK%s
         if not isinstance(target, build.StaticLibrary):
             commands += compilers.get_base_link_args(self.environment.coredata.base_options,
                                                      linker,
-                                                     isinstance(target, build.SharedModule))
+                                                     isinstance(target, build.SharedModule),
+                                                     len(target.included_symbols) > 0)
         # Add -nostdlib if needed; can't be overridden
         commands += self.get_cross_stdlib_link_args(target, linker)
         # Add things like /NOLOGO; usually can't be overridden
@@ -2571,7 +2572,7 @@ rule FORTRAN_DEP_HACK%s
         # PIC, import library generation, etc.
         commands += self.get_target_type_link_args(target, linker)
 
-        #undefine symbols
+        commands += linker.get_include_symbols_for(target.included_symbols)
 
         # Archives that are copied wholesale in the result. Must be before any
         # other link targets so missing symbols from whole archives are found in those.

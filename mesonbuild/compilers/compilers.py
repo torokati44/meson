@@ -374,7 +374,7 @@ def get_base_compile_args(options, compiler):
         args.append('-fembed-bitcode')
     return args
 
-def get_base_link_args(options, linker, is_shared_module):
+def get_base_link_args(options, linker, is_shared_module, has_included_symbols):
     args = []
     # FIXME, gcc/clang specific.
     try:
@@ -408,7 +408,7 @@ def get_base_link_args(options, linker, is_shared_module):
     # -bitcode_bundle is incompatible with -undefined and -bundle
     if bitcode and not is_shared_module:
         args.append('-Wl,-bitcode_bundle')
-    elif as_needed:
+    elif as_needed and not has_included_symbols:
         # -Wl,-dead_strip_dylibs is incompatible with bitcode
         args.append(linker.get_asneeded_args())
     return args
@@ -1254,7 +1254,7 @@ class GnuCompiler:
         return ['-shared']
 
     def get_include_symbols_for(self, args):
-        raise EnvironmentException('Language %s does not support forced inclusion of linker symbols.' % self.get_display_language())
+        return ['-Wl,--require-defined=' + a for a in args]
 
     def get_link_whole_for(self, args):
         return ['-Wl,--whole-archive'] + args + ['-Wl,--no-whole-archive']
@@ -1403,7 +1403,10 @@ class ClangCompiler:
         return ['-shared']
 
     def get_include_symbols_for(self, args):
-        raise EnvironmentException('Language %s does not support forced inclusion of linker symbols.' % self.get_display_language())
+        if self.clang_type == CLANG_OSX:
+            return ['-Wl,-u,' + a for a in args]
+        else:
+            return ['-Wl,--require-defined=' + a for a in args]
 
     def get_link_whole_for(self, args):
         if self.clang_type == CLANG_OSX:
