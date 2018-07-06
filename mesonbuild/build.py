@@ -61,6 +61,7 @@ buildtarget_kwargs = set([
     'link_depends',
     'implicit_include_directories',
     'include_directories',
+    'include_symbols',
     'install',
     'install_rpath',
     'install_dir',
@@ -377,6 +378,8 @@ class BuildTarget(Target):
         self.objects = []
         self.external_deps = []
         self.include_dirs = []
+        # Manually 'undefined' symbols
+        self.included_symbols = []
         self.link_targets = []
         self.link_whole_targets = []
         self.link_depends = []
@@ -701,6 +704,11 @@ just like those detected with the dependency() function.''')
         lwhole = extract_as_list(kwargs, 'link_whole')
         for linktarget in lwhole:
             self.link_whole(linktarget)
+
+        self.included_symbols = extract_as_list(kwargs, 'include_symbols')
+        for i in self.included_symbols:
+            if not isinstance(i, str):
+                raise InvalidArguments('include_symbols arguments must be strings.')
 
         c_pchlist, cpp_pchlist, clist, cpplist, cslist, valalist,  objclist, objcpplist, fortranlist, rustlist \
             = extract_as_list(kwargs, 'c_pch', 'cpp_pch', 'c_args', 'cpp_args', 'cs_args', 'vala_args', 'objc_args',
