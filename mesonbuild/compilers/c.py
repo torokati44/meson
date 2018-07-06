@@ -1425,6 +1425,15 @@ class VisualStudioCCompiler(CCompiler):
         pdbarr += ['pdb']
         return ['/DEBUG', '/PDB:' + '.'.join(pdbarr)]
 
+    def get_include_symbols_for(self, args):
+        return ['/INCLUDE:' + a for a in args]
+
+    def get_noasneeded_args(self):
+        return ['/OPT:NOREF']
+
+    def get_asneeded_args(self):
+        return ['/OPT:REF']
+
     def get_link_whole_for(self, args):
         # Only since VS2015
         args = listify(args)

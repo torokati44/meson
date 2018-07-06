@@ -422,7 +422,7 @@ def get_base_compile_args(options, compiler):
         pass
     return args
 
-def get_base_link_args(options, linker, is_shared_module):
+def get_base_link_args(options, linker, is_shared_module, has_included_symbols):
     args = []
     # FIXME, gcc/clang specific.
     try:
@@ -452,13 +452,22 @@ def get_base_link_args(options, linker, is_shared_module):
         args.append('-Wl,--no-undefined')
     as_needed = option_enabled(linker.base_options, options, 'b_asneeded')
     bitcode = option_enabled(linker.base_options, options, 'b_bitcode')
+
     # Shared modules cannot be built with bitcode_bundle because
     # -bitcode_bundle is incompatible with -undefined and -bundle
     if bitcode and not is_shared_module:
         args.append('-Wl,-bitcode_bundle')
-    elif as_needed:
-        # -Wl,-dead_strip_dylibs is incompatible with bitcode
-        args.append(linker.get_asneeded_args())
+
+    # as_needed does not make sense with include_symbols or shared_module,
+    # -Wl,-dead_strip_dylibs is incompatible with bitcode
+    if as_needed and not has_included_symbols and not is_shared_module and not bitcode:
+        args += linker.get_asneeded_args()
+    else:
+        args += linker.get_noasneeded_args()
+
+    if as_needed and has_included_symbols:
+        mlog.warning('The b_asneeded option is ignored if there are include_symbols arguments')
+
     try:
         crt_val = options['b_vscrt'].value
         buildtype = options['buildtype'].value
@@ -1044,6 +1053,15 @@ class Compiler:
     def get_std_shared_module_link_args(self, options):
         return self.get_std_shared_lib_link_args()
 
+    def get_asneeded_args(self):
+        return []
+
+    def get_noasneeded_args(self):
+        return []
+
+    def get_include_symbols_for(self, args):
+        return []
+
     def get_link_whole_for(self, args):
         if isinstance(args, list) and not args:
             return []
@@ -1157,6 +1175,9 @@ ICC_WIN = 2
 # for the sake of adding as-needed support
 GNU_LD_AS_NEEDED = '-Wl,--as-needed'
 APPLE_LD_AS_NEEDED = '-Wl,-dead_strip_dylibs'
+
+GNU_LD_NO_AS_NEEDED = '-Wl,--no-as-needed'
+APPLE_LD_NO_AS_NEEDED = '-Wl,-no_dead_strip_inits_and_terms' # not perfect, but as close as we can get
 
 def get_macos_dylib_install_name(prefix, shlib_name, suffix, soversion):
     install_name = prefix + shlib_name
@@ -1276,9 +1297,15 @@ class GnuCompiler:
     # of fragmenting it into GnuCompiler and ClangCompiler
     def get_asneeded_args(self):
         if self.gcc_type == GCC_OSX:
-            return APPLE_LD_AS_NEEDED
+            return [APPLE_LD_AS_NEEDED]
         else:
-            return GNU_LD_AS_NEEDED
+            return [GNU_LD_AS_NEEDED]
+
+    def get_noasneeded_args(self):
+        if self.gcc_type == GCC_OSX:
+            return [APPLE_LD_NO_AS_NEEDED]
+        else:
+            return [GNU_LD_NO_AS_NEEDED]
 
     def get_colorout_args(self, colortype):
         if mesonlib.version_compare(self.version, '>=4.9.0'):
@@ -1333,6 +1360,10 @@ class GnuCompiler:
 
     def get_link_whole_for(self, args):
         return ['-Wl,--whole-archive'] + args + ['-Wl,--no-whole-archive']
+
+    def get_include_symbols_for(self, args):
+        # TODO: check for GCC version, and use -u (--undefined) instead of --require-defined if it's not yet supported?
+        return ['-Wl,--require-defined=' + a for a in args]
 
     def gen_vs_module_defs_args(self, defsfile):
         if not isinstance(defsfile, str):
@@ -1413,13 +1444,19 @@ class ClangCompiler:
         # All Clang backends can do assembly and LLVM IR
         self.can_compile_suffixes.update(['ll', 's'])
 
+    def get_noasneeded_args(self):
+        if self.clang_type == CLANG_OSX:
+            return [APPLE_LD_NO_AS_NEEDED]
+        else:
+            return [GNU_LD_NO_AS_NEEDED]
+
     # TODO: centralise this policy more globally, instead
     # of fragmenting it into GnuCompiler and ClangCompiler
     def get_asneeded_args(self):
         if self.clang_type == CLANG_OSX:
-            return APPLE_LD_AS_NEEDED
+            return [APPLE_LD_AS_NEEDED]
         else:
-            return GNU_LD_AS_NEEDED
+            return [GNU_LD_AS_NEEDED]
 
     def get_pic_args(self):
         if self.clang_type in (CLANG_WIN, CLANG_OSX):
@@ -1486,6 +1523,15 @@ class ClangCompiler:
         if self.clang_type == CLANG_OSX:
             return ['-bundle', '-Wl,-undefined,dynamic_lookup']
         return ['-shared']
+
+    def get_include_symbols_for(self, args):
+        if self.clang_type == CLANG_OSX:
+            return ['-Wl,-u,' + a for a in args] # Clang on OSX doesn't have --require-defined
+        else:
+            # This is only available since binutils 2.26. Can/should we check for that? How?
+            # We should probably use simply --undefined with earlier versions.
+            # https://sourceware.org/git/gitweb.cgi?p=binutils-gdb.git;a=blob_plain;f=ld/NEWS;hb=refs/tags/binutils-2_26
+            return ['-Wl,--require-defined=' + a for a in args]
 
     def get_link_whole_for(self, args):
         if self.clang_type == CLANG_OSX:
@@ -1631,13 +1677,19 @@ class IntelCompiler:
             raise MesonException('Unreachable code when converting icc type to gcc type.')
         return get_gcc_soname_args(gcc_type, *args)
 
+    def get_noasneeded_args(self):
+        if self.icc_type == ICC_OSX:
+            return [APPLE_LD_NO_AS_NEEDED]
+        else:
+            return [GNU_LD_NO_AS_NEEDED]
+
     # TODO: centralise this policy more globally, instead
     # of fragmenting it into GnuCompiler and ClangCompiler
     def get_asneeded_args(self):
-        if self.icc_type == CLANG_OSX:
-            return APPLE_LD_AS_NEEDED
+        if self.icc_type == ICC_OSX:
+            return [APPLE_LD_AS_NEEDED]
         else:
-            return GNU_LD_AS_NEEDED
+            return [GNU_LD_AS_NEEDED]
 
     def get_std_shared_lib_link_args(self):
         # FIXME: Don't know how icc works on OSX
