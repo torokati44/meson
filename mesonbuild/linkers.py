@@ -500,6 +500,9 @@ class GnuLikeDynamicLinkerMixin:
     def get_asneeded_args(self) -> T.List[str]:
         return self._apply_prefix('--as-needed')
 
+    def get_noasneeded_args(self) -> T.List[str]:
+        return self._apply_prefix('--no-as-needed')
+
     def get_link_whole_for(self, args: T.List[str]) -> T.List[str]:
         if not args:
             return args
@@ -627,6 +630,9 @@ class AppleDynamicLinker(PosixDynamicLinkerMixin, DynamicLinker):
 
     def get_asneeded_args(self) -> T.List[str]:
         return self._apply_prefix('-dead_strip_dylibs')
+
+    def get_noasneeded_args(self) -> T.List[str]:
+        return self._apply_prefix('-no_dead_strip_inits_and_terms') # not perfect, but as close as we can get
 
     def get_allow_undefined_args(self) -> T.List[str]:
         return self._apply_prefix('-undefined,dynamic_lookup')

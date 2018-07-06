@@ -337,7 +337,7 @@ def get_base_compile_args(options, compiler):
         pass
     return args
 
-def get_base_link_args(options, linker, is_shared_module):
+def get_base_link_args(options, linker, is_shared_module, has_included_symbols):
     args = []
     try:
         if options['b_lto'].value:
@@ -364,6 +364,7 @@ def get_base_link_args(options, linker, is_shared_module):
 
     as_needed = option_enabled(linker.base_options, options, 'b_asneeded')
     bitcode = option_enabled(linker.base_options, options, 'b_bitcode')
+
     # Shared modules cannot be built with bitcode_bundle because
     # -bitcode_bundle is incompatible with -undefined and -bundle
     if bitcode and not is_shared_module:
@@ -380,6 +381,16 @@ def get_base_link_args(options, linker, is_shared_module):
             args.extend(linker.no_undefined_link_args())
         else:
             args.extend(linker.get_allow_undefined_link_args())
+
+    # as_needed does not make sense with include_symbols or shared_module,
+    # -Wl,-dead_strip_dylibs is incompatible with bitcode
+    if as_needed and not has_included_symbols and not is_shared_module and not bitcode:
+        args += linker.get_asneeded_args()
+    else:
+        args += linker.get_noasneeded_args()
+
+    if as_needed and has_included_symbols:
+        mlog.warning('The b_asneeded option is ignored if there are include_symbols arguments')
 
     try:
         crt_val = options['b_vscrt'].value
@@ -1068,6 +1079,20 @@ class Compiler:
 
     def no_undefined_link_args(self) -> T.List[str]:
         return self.linker.no_undefined_args()
+
+    def get_asneeded_args(self):
+        return []
+
+    def get_noasneeded_args(self):
+        return []
+
+    def get_include_symbols_for(self, args):
+        return []
+
+    def get_link_whole_for(self, args):
+        if isinstance(args, list) and not args:
+            return []
+        raise EnvironmentException('Language %s does not support linking whole archives.' % self.get_display_language())
 
     # Compiler arguments needed to enable the given instruction set.
     # May be [] meaning nothing needed or None meaning the given set
