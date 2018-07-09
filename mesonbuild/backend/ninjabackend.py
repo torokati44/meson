@@ -2393,6 +2393,8 @@ rule FORTRAN_DEP_HACK%s
 
         if not isinstance(target, build.StaticLibrary):
             commands += linker.get_include_symbols_for(target.included_symbols)
+        elif target.included_symbols:
+            mlog.warning("include_symbols are ignored in static_library targets")
 
         # Archives that are copied wholesale in the result. Must be before any
         # other link targets so missing symbols from whole archives are found in those.
