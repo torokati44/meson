@@ -1080,20 +1080,6 @@ class Compiler:
     def no_undefined_link_args(self) -> T.List[str]:
         return self.linker.no_undefined_args()
 
-    def get_asneeded_args(self):
-        return []
-
-    def get_noasneeded_args(self):
-        return []
-
-    def get_include_symbols_for(self, args):
-        return []
-
-    def get_link_whole_for(self, args):
-        if isinstance(args, list) and not args:
-            return []
-        raise EnvironmentException('Language %s does not support linking whole archives.' % self.get_display_language())
-
     # Compiler arguments needed to enable the given instruction set.
     # May be [] meaning nothing needed or None meaning the given set
     # is not supported.
@@ -1193,6 +1179,12 @@ class Compiler:
 
     def get_asneeded_args(self) -> T.List[str]:
         return self.linker.get_asneeded_args()
+
+    def get_noasneeded_args(self):
+        return self.linker.get_noasneeded_args()
+
+    def get_include_symbols_for(self, args):
+        return self.linker.get_include_symbols_for(args)
 
     def bitcode_args(self) -> T.List[str]:
         return self.linker.bitcode_args()
